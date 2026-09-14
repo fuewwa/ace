@@ -8,3 +8,6 @@ pkg/
 *.sln
 build/
 *.log
+*.zip
+*.rar
+*.7z
