@@ -90,7 +90,7 @@ there when you press `Super` + `Space`.
 On Arch Linux:
 
 ```
-sudo pacman -S libx11
+sudo pacman -S libx11 xorg-server-xephyr
 ```
 
 ## Building
@@ -106,7 +106,6 @@ The `ace` binary will be produced in the project root. You can write `make help`
 For testing without leaving your current session, use Xephyr:
 
 ```
-sudo pacman -S xorg-server-xephyr
 Xephyr :1 -screen 1280x800 &
 DISPLAY=:1 ./ace
 ```
