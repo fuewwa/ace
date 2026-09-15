@@ -2,10 +2,11 @@ SOURCES := src/main.cpp src/window_manager.cpp src/config.cpp src/ewmh.cpp src/p
 OBJECTS := $(SOURCES:.cpp=.o)
 
 TARGET := ace
+SUB := acerror
 
-BINDIR := /usr/bin
-XSESSIONS_DIR := /usr/share/xsessions
-DESKTOP_FILE := assets/ace.desktop
+BIN := /usr/bin
+XSESSIONS := /usr/share/xsessions
+DESKTOP := assets/ace.desktop
 
 $(TARGET): $(OBJECTS)
 	g++ -std=c++17 -Wall -Wextra -O2 -Iinclude -o $(TARGET) $(OBJECTS) -lX11
@@ -15,6 +16,7 @@ src/%.o: src/%.cpp
 
 clean:
 	rm -f $(TARGET) $(OBJECTS)
+	$(MAKE) -C $(SUB) clean
 
 ifdef DISABLED
 run: $(TARGET)
@@ -33,15 +35,18 @@ install: $(TARGET)
 		echo "Please run this as root (sudo make install)."; \
 		exit 1; \
 	fi
-	install -m 755 $(TARGET) $(BINDIR)/$(TARGET)
-	@echo "Installed $(BINDIR)/$(TARGET)"
-	@if [ ! -f $(DESKTOP_FILE) ]; then \
-		echo "Desktop file not found at $(DESKTOP_FILE)."; \
+	install -m 755 $(TARGET) $(BIN)/$(TARGET)
+	@echo "Installed $(BIN)/$(TARGET)"
+	@if [ ! -f $(DESKTOP) ]; then \
+		echo "Desktop file not found at $(DESKTOP)."; \
 		exit 1; \
 	fi
-	mkdir -p $(XSESSIONS_DIR)
-	install -m 644 $(DESKTOP_FILE) $(XSESSIONS_DIR)/$(TARGET).desktop
-	@echo "Installed $(XSESSIONS_DIR)/$(TARGET).desktop"
+	mkdir -p $(XSESSIONS)
+	install -m 644 $(DESKTOP) $(XSESSIONS)/$(TARGET).desktop
+	@echo "Installed $(XSESSIONS)/$(TARGET).desktop"
+	$(MAKE) -C $(SUB)
+	install -m 755 $(SUB)/$(SUB) $(BIN)/$(SUB)
+	@echo "Installed $(BIN)/$(SUB)"
 	@echo "Done. Select ace from your display manager session list."
 
 uninstall:
@@ -49,17 +54,23 @@ uninstall:
 		echo "Please run this as root (sudo make uninstall)."; \
 		exit 1; \
 	fi
-	@if [ -f $(BINDIR)/$(TARGET) ]; then \
-		rm -f $(BINDIR)/$(TARGET); \
-		echo "Removed $(BINDIR)/$(TARGET)"; \
+	@if [ -f $(BIN)/$(TARGET) ]; then \
+		rm -f $(BIN)/$(TARGET); \
+		echo "Removed $(BIN)/$(TARGET)"; \
 	else \
-		echo "$(BINDIR)/$(TARGET) not found, skipping"; \
+		echo "$(BIN)/$(TARGET) not found, skipping"; \
 	fi
-	@if [ -f $(XSESSIONS_DIR)/$(TARGET).desktop ]; then \
-		rm -f $(XSESSIONS_DIR)/$(TARGET).desktop; \
-		echo "Removed $(XSESSIONS_DIR)/$(TARGET).desktop"; \
+	@if [ -f $(XSESSIONS)/$(TARGET).desktop ]; then \
+		rm -f $(XSESSIONS)/$(TARGET).desktop; \
+		echo "Removed $(XSESSIONS)/$(TARGET).desktop"; \
 	else \
-		echo "$(XSESSIONS_DIR)/$(TARGET).desktop not found, skipping"; \
+		echo "$(XSESSIONS)/$(TARGET).desktop not found, skipping"; \
+	fi
+	@if [ -f $(BIN)/$(SUB) ]; then \
+		rm -f $(BIN)/$(SUB); \
+		echo "Removed $(BIN)/$(SUB)"; \
+	else \
+		echo "$(BIN)/$(SUB) not found, skipping"; \
 	fi
 	@echo "Done."
 
@@ -67,7 +78,7 @@ help:
 	@echo "Usage:"
 	@echo "  make            - Build ace"
 	@echo "  make clean      - Remove object files"
-	@echo "  sudo make install   - Install ace and the xsession entry"
-	@echo "  sudo make uninstall - Remove ace and the xsession entry"
+	@echo "  sudo make install   - Install ace, acerror and the xsession entry"
+	@echo "  sudo make uninstall - Remove ace, acerror and the xsession entry"
 
 .PHONY: clean help run install uninstall
