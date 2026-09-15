@@ -93,6 +93,12 @@ On Arch Linux:
 sudo pacman -S libx11 xorg-server-xephyr
 ```
 
+On Debian based:
+
+```
+sudo apt install libx11-dev xserver-xephyr
+```
+
 ## Building
 
 ```
