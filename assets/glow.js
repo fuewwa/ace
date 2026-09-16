@@ -9,7 +9,7 @@
 
   function init() {
 
-  var size = 100;
+  var size = 150;
   var half = size / 2;
 
   var glow = document.createElement("div");
@@ -25,10 +25,10 @@
     "pointer-events:none;" +
     "z-index:9999;" +
     "border-radius:50%;" +
-    "background:radial-gradient(circle, rgba(82,192,255,0.16) 0%, rgba(82,192,255,0.06) 35%, rgba(82,192,255,0) 70%);" +
+    "background:radial-gradient(circle, rgba(82,192,255,0.16) 10%, rgba(82,192,255,0.06) 40%, rgba(82,192,255,0) 60%);" +
     "transform:translate(-50%,-50%);" +
-    "opacity:0.5;" +
-    "transition:opacity .3s ease;" +
+    "opacity:0.01;" +
+    "transition:opacity .5s ease;" +
     "will-change:transform;" +
     "}";
   document.head.appendChild(style);
