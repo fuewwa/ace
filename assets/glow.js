@@ -9,6 +9,9 @@
 
   function init() {
 
+  var size = 100;
+  var half = size / 2;
+
   var glow = document.createElement("div");
   glow.id = "cursor-glow";
   document.body.appendChild(glow);
@@ -18,13 +21,13 @@
     "#cursor-glow{" +
     "position:fixed;" +
     "top:0;left:0;" +
-    "width:600px;height:600px;" +
+    "width:" + size + "px;height:" + size + "px;" +
     "pointer-events:none;" +
     "z-index:9999;" +
     "border-radius:50%;" +
     "background:radial-gradient(circle, rgba(82,192,255,0.16) 0%, rgba(82,192,255,0.06) 35%, rgba(82,192,255,0) 70%);" +
     "transform:translate(-50%,-50%);" +
-    "opacity:0;" +
+    "opacity:0.5;" +
     "transition:opacity .3s ease;" +
     "will-change:transform;" +
     "}";
@@ -54,7 +57,7 @@
     currentX += (targetX - currentX) * 0.12;
     currentY += (targetY - currentY) * 0.12;
     glow.style.transform =
-      "translate(" + (currentX - 300) + "px, " + (currentY - 300) + "px)";
+      "translate(" + (currentX - half) + "px, " + (currentY - half) + "px)";
     requestAnimationFrame(tick);
   }
 
