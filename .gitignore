@@ -3,3 +3,4 @@ ace
 pkg/
 *.pkg.tar.*
 *.log
+acerror/
