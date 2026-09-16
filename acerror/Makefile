@@ -1,11 +1,8 @@
-TARGET := acerror
-SOURCE := app.py
-
-$(TARGET): $(SOURCE)
-	cp $(SOURCE) $(TARGET)
-	chmod +x $(TARGET)
+$(TARGET): app.py
+	cp app.py acerror
+	chmod +x acerror
 
 clean:
-	rm -f $(TARGET)
+	rm -f acerror
 
 .PHONY: clean
