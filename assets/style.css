@@ -9,7 +9,7 @@
 /* Basics */
 
 body {
-    background-color: #2e2e2e;
+    background-color: #001123;
     color: #ddd;
     font-family: "Droid Sans", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
     font-size: 1em;
@@ -75,7 +75,7 @@ nav ul li a {
     color: #FFF;
     padding: .4rem .8rem;
     text-decoration: none;
-    border-bottom: 2px solid #2e2e2e;
+    border-bottom: 2px solid #001d3a;
 }
 
 nav ul li a:hover {
@@ -127,7 +127,7 @@ main li {
 /* Footer */
 
 footer {
-    border-top: 2px solid #242424;
+    border-top: 2px solid #001d3a;
     color: #ccc;
     font-size: .9rem;
     text-align: center;
@@ -144,7 +144,7 @@ footer {
 
 .info {
     padding: 2rem;
-    background-color: #242424;
+    background-color: #001d3a;
     display: flex;
     align-items: center;
     margin-bottom: 2rem;
