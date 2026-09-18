@@ -58,10 +58,10 @@ session picker on the login screen:
 sudo make clean install
 ```
  
-`make delete` removes both of these:
+`make uninstall` removes both of these:
  
 ```
-sudo make delete
+sudo make uninstall
 ```
  
 Both commands require root, since they write to `/usr/bin` and
