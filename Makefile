@@ -2,7 +2,6 @@ SOURCES := src/main.cpp src/window_manager.cpp src/config.cpp src/ewmh.cpp src/p
 OBJECTS := $(SOURCES:.cpp=.o)
 
 TARGET := ace
-SUB := acerror
 
 BIN := /usr/bin
 XSESSIONS := /usr/share/xsessions
@@ -16,7 +15,6 @@ src/%.o: src/%.cpp
 
 clean:
 	rm -f $(TARGET) $(OBJECTS)
-	$(MAKE) -C $(SUB) clean
 
 ifdef DISABLED
 run: $(TARGET)
@@ -44,9 +42,6 @@ install: $(TARGET)
 	mkdir -p $(XSESSIONS)
 	install -m 644 $(DESKTOP) $(XSESSIONS)/$(TARGET).desktop
 	@echo "Installed $(XSESSIONS)/$(TARGET).desktop"
-	$(MAKE) -C $(SUB)
-	install -m 755 $(SUB)/$(SUB) $(BIN)/$(SUB)
-	@echo "Installed $(BIN)/$(SUB)"
 	@echo "Done. Select ace from your display manager session list."
 
 uninstall:
@@ -66,19 +61,13 @@ uninstall:
 	else \
 		echo "$(XSESSIONS)/$(TARGET).desktop not found, skipping"; \
 	fi
-	@if [ -f $(BIN)/$(SUB) ]; then \
-		rm -f $(BIN)/$(SUB); \
-		echo "Removed $(BIN)/$(SUB)"; \
-	else \
-		echo "$(BIN)/$(SUB) not found, skipping"; \
-	fi
 	@echo "Done."
 
 help:
 	@echo "Usage:"
 	@echo "  make            - Build ace"
 	@echo "  make clean      - Remove object files"
-	@echo "  sudo make install   - Install ace, acerror and the xsession entry"
-	@echo "  sudo make uninstall - Remove ace, acerror and the xsession entry"
+	@echo "  sudo make install   - Install ace and the xsession entry"
+	@echo "  sudo make uninstall - Remove ace and the xsession entry"
 
 .PHONY: clean help run install uninstall
