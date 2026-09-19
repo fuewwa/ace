@@ -8,7 +8,7 @@
 ![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)
 ![build](https://github.com/KURWAss/ace/actions/workflows/build.yml/badge.svg)
 
-A minimal floating window manager for X11, written in C++. One of biggest plus: ace uses only 5 RAM megabytes
+A minimal floating window manager for X11, written in C++. One of biggest plus: ace uses only ~5 RAM megabytes
 
 ## Keybinds
 
