@@ -7,7 +7,7 @@
 ![Platform](https://img.shields.io/badge/platform-X11-lightgrey.svg)
 ![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)
 ![build](https://github.com/KURWAss/ace/actions/workflows/build.yml/badge.svg)
-[![Distros](https://img.shields.io/badge/Distributions-Arch_Linux,_Debian-green.svg)](https://shields.io/)
+[![Distros](https://img.shields.io/badge/distributions-arch_linux,_debian-green.svg)](https://shields.io/)
 
 A minimal floating window manager for X11, written in C++. One of biggest plus: ace uses only ~5 RAM megabytes
 
