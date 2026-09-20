@@ -1,13 +1,19 @@
+# build
 ace
 *.o
 pkg/
 *.pkg.tar.*
 *.log
 *.swp
-.vscode/
 *.sln
 build/
 *.log
 *.zip
 *.rar
 *.7z
+
+# someone code on this?
+.DS_Store
+.vscode/
+*sublime*
+.idea/
