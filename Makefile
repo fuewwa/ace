@@ -9,18 +9,6 @@ src/%.o: src/%.cpp
 clean:
 	rm -f $(TARGET) $(OBJECTS)
 
-ifdef DISABLED
-run: $(TARGET)
-	@command -v Xephyr >/dev/null 2>&1 || { echo "Xephyr not found. Install it first (e.g. sudo pacman -S xorg-server-xephyr)."; exit 1; }
-	-pkill Xephyr 2>/dev/null
-	-pkill -f "DISPLAY=:1 ./$(TARGET)" 2>/dev/null
-	sleep 0.5
-	Xephyr :1 -screen 1280x800 & \
-	sleep 1; \
-	DISPLAY=:1 ./$(TARGET) & \
-	echo "Xephyr and ace are running on DISPLAY=:1"
-endif
-
 install: $(TARGET)
 	@if [ "$$(id -u)" -ne 0 ]; then \
 		echo "Please run this as root (sudo make install)."; \
@@ -63,4 +51,4 @@ help:
 	@echo "  sudo make install   - Install ace and the xsession entry"
 	@echo "  sudo make uninstall - Remove ace and the xsession entry"
 
-.PHONY: clean help run install uninstall
+.PHONY: clean help install uninstall
