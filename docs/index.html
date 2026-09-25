@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ace — a minimal floating window manager</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2218%22 fill=%22%230b0d0f%22/><rect x=%2222%22 y=%2222%22 width=%2256%22 height=%2242%22 rx=%224%22 fill=%22none%22 stroke=%22%23f0a848%22 stroke-width=%226%22/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0b0d0f;
+    --panel:#15181b;
+    --panel-2:#1a1e21;
+    --border:#262b2f;
+    --text:#dcd8cd;
+    --muted:#888e94;
+    --accent:#f0a848;
+    --accent-dim:#8a6431;
+    --mono:'IBM Plex Mono', ui-monospace, monospace;
+    --sans:'IBM Plex Sans', system-ui, sans-serif;
+    box-sizing:border-box;
+    padding-top:env(safe-area-inset-top,0px);
+    padding-bottom:env(safe-area-inset-bottom,0px);
+  }
+  *{box-sizing:inherit; margin:0; padding:0;}
+  html{scroll-padding-top:env(safe-area-inset-top,0px); scroll-behavior:smooth;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--sans);
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  ::selection{background:var(--accent); color:#0b0d0f;}
+  a{color:inherit;}
+  img{max-width:100%;}
+
+  .wrap{max-width:920px; margin:0 auto; padding:0 24px;}
+
+  header.top{
+    position:sticky; top:0; top:env(safe-area-inset-top,0px);
+    z-index:20;
+    backdrop-filter:blur(10px);
+    background:rgba(11,13,15,.82);
+    border-bottom:1px solid var(--border);
+  }
+  .top-inner{
+    max-width:920px; margin:0 auto; padding:16px 24px;
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .brand{
+    font-family:var(--mono); font-weight:600; font-size:1.05rem;
+    display:flex; align-items:center; gap:8px;
+  }
+  .brand .dot{width:8px; height:8px; border-radius:2px; background:var(--accent); display:inline-block;}
+  .top-links{display:flex; gap:22px; font-family:var(--mono); font-size:.85rem;}
+  .top-links a{text-decoration:none; color:var(--muted); transition:color .15s;}
+  .top-links a:hover{color:var(--text);}
+
+  /* hero */
+  .hero{padding:64px 0 40px;}
+  .hero h1{
+    font-family:var(--mono); font-weight:600;
+    font-size:clamp(1.9rem, 4vw, 2.7rem);
+    line-height:1.25; max-width:15ch;
+    letter-spacing:-.01em;
+  }
+  .hero p.lede{
+    margin-top:18px; max-width:52ch; color:var(--muted); font-size:1.05rem;
+  }
+  .hero .ctas{margin-top:28px; display:flex; gap:14px; flex-wrap:wrap;}
+  .btn{
+    font-family:var(--mono); font-size:.9rem; padding:10px 18px;
+    border-radius:5px; text-decoration:none; display:inline-block;
+    border:1px solid var(--border);
+  }
+  .btn.primary{background:var(--accent); color:#191008; border-color:var(--accent); font-weight:600;}
+  .btn.ghost{color:var(--text);}
+  .btn.ghost:hover{border-color:var(--accent-dim);}
+
+  /* desktop demo */
+  .desktop{
+    margin-top:48px;
+    position:relative;
+    height:380px;
+    border-radius:8px;
+    border:1px solid var(--border);
+    background:
+      linear-gradient(180deg, #101317, #0e1013);
+    overflow:hidden;
+  }
+  .desktop::before{
+    content:"";
+    position:absolute; inset:0;
+    background-image:
+      linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px);
+    background-size:28px 28px;
+  }
+  .hint{
+    position:absolute; left:16px; bottom:14px;
+    font-family:var(--mono); font-size:.72rem; color:var(--muted);
+    z-index:5; pointer-events:none;
+    border:1px dashed var(--border); padding:5px 9px; border-radius:4px;
+    background:rgba(11,13,15,.6);
+  }
+  .fwin{
+    position:absolute;
+    width:280px;
+    border-radius:6px;
+    border:1px solid var(--border);
+    background:var(--panel);
+    box-shadow:0 18px 40px rgba(0,0,0,.45);
+    user-select:none;
+  }
+  .fwin .bar{
+    display:flex; align-items:center; gap:8px;
+    padding:8px 10px;
+    background:var(--panel-2);
+    border-bottom:1px solid var(--border);
+    cursor:grab;
+    font-family:var(--mono); font-size:.72rem; color:var(--muted);
+  }
+  .fwin.active .bar{cursor:grabbing;}
+  .fwin .bar .sq{width:8px; height:8px; border:1.4px solid var(--muted); border-radius:1px;}
+  .fwin .body{padding:14px; font-family:var(--mono); font-size:.72rem; color:var(--muted);}
+  .fwin .body .ln{height:8px; background:var(--border); border-radius:2px; margin-bottom:8px;}
+  .fwin .body .ln.w1{width:78%;}
+  .fwin .body .ln.w2{width:52%;}
+  .fwin .body .ln.w3{width:64%;}
+  .fwin .resize{
+    position:absolute; right:0; bottom:0; width:16px; height:16px;
+    cursor:nwse-resize;
+    background:
+      linear-gradient(135deg, transparent 0 40%, var(--accent-dim) 40% 55%, transparent 55% 100%);
+  }
+  .fwin.term .body{color:#c9c2ab;}
+  .fwin.term .body .k{color:var(--accent);}
+
+  section{padding:56px 0; border-top:1px solid var(--border);}
+  h2{
+    font-family:var(--mono); font-weight:600; font-size:1.35rem;
+    margin-bottom:8px;
+  }
+  section > .wrap > p.sub{color:var(--muted); max-width:56ch; margin-bottom:28px;}
+
+  /* stats */
+  .stats{
+    display:grid; grid-template-columns:repeat(4, 1fr); gap:1px;
+    background:var(--border); border:1px solid var(--border); border-radius:8px; overflow:hidden;
+  }
+  .stat{background:var(--panel); padding:20px 16px;}
+  .stat .num{font-family:var(--mono); font-weight:600; font-size:1.5rem; color:var(--accent);}
+  .stat .lbl{color:var(--muted); font-size:.82rem; margin-top:4px;}
+  @media (max-width:640px){.stats{grid-template-columns:repeat(2,1fr);}}
+
+  /* keybinds */
+  .keys{border:1px solid var(--border); border-radius:8px; overflow:hidden;}
+  .krow{
+    display:grid; grid-template-columns:210px 1fr;
+    border-top:1px solid var(--border);
+    padding:13px 18px; align-items:center; gap:12px;
+  }
+  .krow:first-child{border-top:none;}
+  .krow:nth-child(odd){background:var(--panel);}
+  .combo{font-family:var(--mono); font-size:.85rem; display:flex; align-items:center; flex-wrap:wrap; gap:4px;}
+  kbd{
+    font-family:var(--mono); font-size:.78rem;
+    background:var(--panel-2); border:1px solid var(--border);
+    border-bottom-width:2px;
+    padding:3px 7px; border-radius:4px; color:var(--text);
+  }
+  .plus{color:var(--muted); font-size:.78rem;}
+  .desc{color:var(--muted); font-size:.92rem;}
+
+  /* install */
+  .cols{display:grid; grid-template-columns:1fr 1fr; gap:20px;}
+  @media (max-width:640px){.cols{grid-template-columns:1fr;}}
+  .code-card{
+    border:1px solid var(--border); border-radius:6px; overflow:hidden; background:var(--panel);
+  }
+  .code-card .bar{
+    padding:8px 12px; background:var(--panel-2); border-bottom:1px solid var(--border);
+    font-family:var(--mono); font-size:.72rem; color:var(--muted);
+    display:flex; align-items:center; gap:8px;
+  }
+  .code-card .bar .sq{width:8px; height:8px; border:1.4px solid var(--muted); border-radius:1px;}
+  pre{
+    font-family:var(--mono); font-size:.82rem; color:#c9c2ab;
+    padding:14px 16px; overflow-x:auto;
+  }
+  pre .c{color:var(--muted);}
+  pre .p{color:var(--accent);}
+  .stack{display:flex; flex-direction:column; gap:16px; margin-top:20px;}
+
+  footer{padding:40px 0 56px; border-top:1px solid var(--border);}
+  .foot-inner{
+    display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:14px;
+    font-family:var(--mono); font-size:.8rem; color:var(--muted);
+  }
+  .foot-inner a{text-decoration:none;}
+  .foot-inner a:hover{color:var(--accent);}
+
+  @media (prefers-reduced-motion:reduce){ html{scroll-behavior:auto;} }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="top-inner">
+    <div class="brand"><span class="dot"></span>ace</div>
+    <nav class="top-links">
+      <a href="#keybinds">keybinds</a>
+      <a href="#install">install</a>
+      <a href="https://github.com/fuewwa/ace">source</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <section class="hero wrap" style="border-top:none;">
+    <h1>A floating window manager that gets out of the way.</h1>
+    <p class="lede">ace is a minimal X11 window manager written in C++17. No tiling to fight, no compositor bloat — just windows you move and resize by hand, and a footprint of about 5MB of RAM.</p>
+    <div class="ctas">
+      <a class="btn primary" href="#install">Build it</a>
+      <a class="btn ghost" href="https://github.com/fuewwa/ace">View on GitHub</a>
+    </div>
+
+    <div class="desktop" id="desktop">
+      <div class="fwin term" id="win1" style="left:36px; top:34px; width:300px;">
+        <div class="bar"><span class="sq"></span>alacritty</div>
+        <div class="body">
+          <div class="ln w1"><span class="k">~/ace $</span></div>
+          <div class="ln w2"></div>
+          <div class="ln w3"></div>
+        </div>
+        <div class="resize"></div>
+      </div>
+      <div class="fwin" id="win2" style="left:250px; top:150px; width:260px;">
+        <div class="bar"><span class="sq"></span>notes.md</div>
+        <div class="body">
+          <div class="ln w1"></div>
+          <div class="ln w3"></div>
+          <div class="ln w2"></div>
+        </div>
+        <div class="resize"></div>
+      </div>
+      <div class="hint">drag a title bar — that's Alt + left click in ace</div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <h2>Small on purpose</h2>
+      <p class="sub">ace does one job: manage floating windows. Everything else — the terminal, the launcher — is a program you already have.</p>
+      <div class="stats">
+        <div class="stat"><div class="num">~5MB</div><div class="lbl">resident memory</div></div>
+        <div class="stat"><div class="num">C++17</div><div class="lbl">language</div></div>
+        <div class="stat"><div class="num">Xlib</div><div class="lbl">only dependency</div></div>
+        <div class="stat"><div class="num">GPLv3</div><div class="lbl">license</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="keybinds">
+    <div class="wrap">
+      <h2>Keybinds</h2>
+      <p class="sub">The full set. Nothing is hidden behind a config file until you decide to change it.</p>
+      <div class="keys">
+        <div class="krow"><div class="combo"><kbd>Alt</kbd><span class="plus">+</span>drag</div><div class="desc">Move a window</div></div>
+        <div class="krow"><div class="combo"><kbd>Alt</kbd><span class="plus">+</span>right drag</div><div class="desc">Resize a window</div></div>
+        <div class="krow"><div class="combo"><kbd>Super</kbd><span class="plus">+</span><kbd>Space</kbd></div><div class="desc">Open a terminal</div></div>
+        <div class="krow"><div class="combo"><kbd>Super</kbd><span class="plus">+</span><kbd>D</kbd></div><div class="desc">Open the application launcher</div></div>
+        <div class="krow"><div class="combo"><kbd>Super</kbd><span class="plus">+</span><kbd>F</kbd></div><div class="desc">Make fullscreen</div></div>
+        <div class="krow"><div class="combo"><kbd>Super</kbd><span class="plus">+</span><kbd>0</kbd>–<kbd>9</kbd></div><div class="desc">Switch workspace</div></div>
+        <div class="krow"><div class="combo"><kbd>Super</kbd><span class="plus">+</span><kbd>Q</kbd></div><div class="desc">Close a window</div></div>
+        <div class="krow"><div class="combo"><kbd>Super</kbd><span class="plus">+</span><kbd>Ctrl</kbd><span class="plus">+</span><kbd>Q</kbd></div><div class="desc">Quit ace</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="install">
+    <div class="wrap">
+      <h2>Install</h2>
+      <p class="sub">ace needs a C++17 compiler and libX11. Pull the headers for your distro, then build.</p>
+      <div class="cols">
+        <div class="code-card">
+          <div class="bar"><span class="sq"></span>arch linux</div>
+          <pre><span class="c">$</span> <span class="p">sudo</span> pacman -S libx11 xorg-server-xephyr</pre>
+        </div>
+        <div class="code-card">
+          <div class="bar"><span class="sq"></span>debian / ubuntu</div>
+          <pre><span class="c">$</span> <span class="p">sudo</span> apt install libx11-dev xserver-xephyr</pre>
+        </div>
+      </div>
+
+      <div class="stack">
+        <div class="code-card">
+          <div class="bar"><span class="sq"></span>build &amp; try it</div>
+          <pre><span class="c">$</span> git clone https://github.com/fuewwa/ace
+<span class="c">$</span> <span class="p">cd</span> ace &amp;&amp; sudo make clean install</pre>
+        </div>
+        <div class="code-card">
+          <div class="bar"><span class="sq"></span>run it by default</div>
+          <pre><span class="c">$</span> <span class="p">echo</span> <span class="c">'exec /path/to/ace'</span> &gt;&gt; ~/.xinitrc
+<span class="c">$</span> startx</pre>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap foot-inner">
+    <span>ace — simple and minimal, for Arch Linux and friends.</span>
+    <a href="https://github.com/fuewwa/ace">github.com/fuewwa/ace</a>
+  </div>
+</footer>
+
+<script>
+(function(){
+  function makeDraggable(el, boundsEl){
+    var bar = el.querySelector('.bar');
+    var dragging = false, sx=0, sy=0, ox=0, oy=0;
+    bar.addEventListener('mousedown', function(e){
+      dragging = true;
+      el.classList.add('active');
+      el.parentNode.appendChild(el);
+      sx = e.clientX; sy = e.clientY;
+      ox = el.offsetLeft; oy = el.offsetTop;
+      e.preventDefault();
+    });
+    window.addEventListener('mousemove', function(e){
+      if(!dragging) return;
+      var b = boundsEl.getBoundingClientRect();
+      var nx = ox + (e.clientX - sx);
+      var ny = oy + (e.clientY - sy);
+      nx = Math.max(0, Math.min(nx, b.width - el.offsetWidth));
+      ny = Math.max(0, Math.min(ny, b.height - el.offsetHeight));
+      el.style.left = nx + 'px';
+      el.style.top = ny + 'px';
+    });
+    window.addEventListener('mouseup', function(){
+      dragging = false;
+      el.classList.remove('active');
+    });
+
+    var handle = el.querySelector('.resize');
+    var resizing = false, rsx=0, rsy=0, rw=0, rh=0;
+    handle.addEventListener('mousedown', function(e){
+      resizing = true;
+      rsx = e.clientX; rsy = e.clientY;
+      rw = el.offsetWidth; rh = el.offsetHeight;
+      e.stopPropagation();
+      e.preventDefault();
+    });
+    window.addEventListener('mousemove', function(e){
+      if(!resizing) return;
+      var nw = Math.max(170, rw + (e.clientX - rsx));
+      el.style.width = nw + 'px';
+    });
+    window.addEventListener('mouseup', function(){ resizing = false; });
+  }
+  var desktop = document.getElementById('desktop');
+  makeDraggable(document.getElementById('win1'), desktop);
+  makeDraggable(document.getElementById('win2'), desktop);
+})();
+</script>
+</body>
+</html>
+
