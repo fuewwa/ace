@@ -18,7 +18,7 @@ the guidelines below may change over time.
 - File and function names should be descriptive, without prefixes like
   `proj_`.
 - Header files go in `include/`, source files go in `src/`.
-- Before opening a PR, make sure `make` builds without warnings (the
+- Before opening a PR, make sure `make` builds without errors and warnings (the
   Makefile enables `-Wall -Wextra`).
 - Formatting follows the Google C++ Style Guide: 4-space indentation,
   opening braces on the same line, `snake_case` for variables, `PascalCase`
