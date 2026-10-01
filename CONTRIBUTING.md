@@ -23,8 +23,6 @@ the guidelines below may change over time.
 - Formatting follows the Google C++ Style Guide: 4-space indentation,
   opening braces on the same line, `snake_case` for variables, `PascalCase`
   for classes and methods.
-- A purely AI-generated pull request ("vibe-coded") cannot be accepted, because
-  the copyright status of such output is uncertain.
 - It can be very effective to ask a coding assistant to confirm and explain a
   bug, but then verify correctness of the generated explanation by implementing
   and testing your own solution. This process saves you time for the mechanical
