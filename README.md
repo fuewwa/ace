@@ -23,29 +23,6 @@ A minimal floating window manager for X11, written in C++. One of biggest plus: 
 - Switch workspace: `Super` + `0`-`9`
 - Make fullscreen: `Super` + `F`
 
-## Project layout
-
-```
-ace/
-├── include/           header files
-│   ├── window_manager.h
-│   ├── ewmh.h
-│   ├── process.h
-│   ├── workspaces.h
-│   └── config.h
-├── src/                source files
-│   ├── main.cpp
-│   ├── window_manager.cpp
-│   ├── ewmh.cpp
-│   ├── process.cpp
-│   ├── workspaces.cpp
-│   └── config.cpp
-├── Makefile
-├── README.md
-├── CONTRIBUTING.md
-└── ... (Other files)
-```
-
 ## System-wide installation
  
 If you want to select `ace` as a session from your login manager
