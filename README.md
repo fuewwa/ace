@@ -82,6 +82,12 @@ On Debian based:
 sudo apt install libx11-dev xserver-xephyr
 ```
 
+On Alpine:
+
+```
+sudo apk add libx11 xorg-server-xephyr
+```
+
 ## Building
 
 ```
