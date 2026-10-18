@@ -104,7 +104,6 @@ void EnsureConfigExists() {
 
     out << "terminal = kitty\n";
     out << "apps = rofi -show drun\n";
-    out << "execute = alacritty\n";
 }
 
 std::string GetTerminalCommand() {
