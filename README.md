@@ -11,7 +11,9 @@
 
 A minimal tiling window manager for X11, written in C++. One of biggest plus: ace uses only ~5 RAM megabytes
 
-## Keybinds
+## Default keybinds
+
+Every keybind can be changed in the config file, see [Configuration](#configuration).
 
 - Maps new windows as soon as they are created and tiles them automatically
 - Windows are arranged in a master and stack layout: the first window takes the left side, the rest are stacked on the right
@@ -27,6 +29,7 @@ A minimal tiling window manager for X11, written in C++. One of biggest plus: ac
 - Switch workspace: `Super` + `0`-`9`
 - Move the focused window to a workspace: `Super` + `Shift` + `0`-`9`
 - Make fullscreen: `Super` + `F`
+- Reload the config: `Super` + `R`
 
 ## System-wide installation
  
@@ -50,20 +53,50 @@ sudo make uninstall
 Both commands require root, since they write to `/usr/bin` and
 `/usr/share/xsessions`.
 
-## Apps Dependencies
- 
-ace itself doesn't launch anything on its own — it relies on external
-programs configured by you:
- 
-- a terminal emulator, defaulting to [kitty](https://github.com/kovidgoyal/kitty)
-- an application launcher, defaulting to [rofi](https://github.com/davatorium/rofi)
+## Configuration
 
 On first run, ace creates a config file at `~/.config/ace/config` (if it
-doesn't already exist)
- 
-You can change `kitty` (or any other program) to any terminal emulator installed on your
-system (e.g. `xterm`, `alacritty`, `foot`) — ace will launch whatever you put
-there when you press `Super` + `Space`.
+doesn't already exist) and fills it with the defaults. Keybinds are
+defined with `bind` lines:
+
+```
+mod = Super
+
+bind = mod+Space exec kitty
+bind = mod+D exec rofi -show drun
+bind = mod+Q close
+bind = mod+1..9 workspace
+bind = mod+Shift+1..9 move_to_workspace
+```
+
+- `mod` is the main modifier, written once and reused as `mod` in every bind. It can be `Super`, `Alt`, `Ctrl`, `Shift`, or a combination such as `Super+Alt`
+- A bind is `<modifiers>+<key> <action> [argument]`. Key names are the usual X11 keysym names (`Space`, `Return`, `Tab`, `F1`, `comma`, ...)
+- `1..9` is a key range for workspace actions: each key switches to or moves the window to the workspace with the same number. `0` is workspace 10
+- Invalid lines are skipped and reported on stderr
+- If the config has no `bind` lines at all, the defaults are used
+
+Available actions:
+
+- `exec <command>`: run a program
+- `close`: close the focused window
+- `quit`: quit ace
+- `fullscreen`: toggle fullscreen for the focused window
+- `focus_next`, `focus_prev`: move focus through the windows
+- `swap_next`, `swap_prev`: swap the focused window with its neighbour
+- `promote`: make the focused window the master
+- `master_shrink`, `master_grow`: resize the master area
+- `workspace <1-10>`: switch workspace
+- `move_to_workspace <1-10>`: move the focused window to a workspace
+- `reload`: reload the config without restarting ace
+
+ace itself doesn't launch anything on its own. The defaults rely on
+external programs:
+
+- a terminal emulator, [kitty](https://github.com/kovidgoyal/kitty)
+- an application launcher, [rofi](https://github.com/davatorium/rofi)
+
+Change `kitty` in the `mod+Space` line to any terminal emulator installed on
+your system (e.g. `xterm`, `alacritty`, `foot`).
 
 ## Dependencies
 

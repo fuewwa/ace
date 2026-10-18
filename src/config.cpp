@@ -3,6 +3,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <pwd.h>
 #include <unistd.h>
 
@@ -74,6 +75,55 @@ std::string GetValueForKey(const std::string& target_key, const std::string& fal
     return fallback;
 }
 
+std::vector<std::string> GetValuesForKey(const std::string& target_key) {
+    std::vector<std::string> values;
+
+    std::string config_path = GetConfigPath();
+    if (config_path.empty()) {
+        return values;
+    }
+
+    std::ifstream in(config_path);
+    if (!in.is_open()) {
+        return values;
+    }
+
+    std::string line;
+    std::string key;
+    std::string value;
+    while (std::getline(in, line)) {
+        if (!ParseConfigLine(line, key, value)) {
+            continue;
+        }
+
+        if (key == target_key) {
+            values.push_back(value);
+        }
+    }
+
+    return values;
+}
+
+const char* const kDefaultBinds[] = {
+    "mod+Space exec kitty",
+    "mod+D exec rofi -show drun",
+    "mod+Q close",
+    "mod+Ctrl+Q quit",
+    "mod+F fullscreen",
+    "mod+R reload",
+    "mod+J focus_next",
+    "mod+K focus_prev",
+    "mod+Shift+J swap_next",
+    "mod+Shift+K swap_prev",
+    "mod+Return promote",
+    "mod+H master_shrink",
+    "mod+L master_grow",
+    "mod+1..9 workspace",
+    "mod+0 workspace 10",
+    "mod+Shift+1..9 move_to_workspace",
+    "mod+Shift+0 move_to_workspace 10",
+};
+
 }  // namespace
 
 std::string GetConfigPath() {
@@ -102,43 +152,24 @@ void EnsureConfigExists() {
         return;
     }
 
-    out << "terminal = kitty\n";
-    out << "apps = rofi -show drun\n";
+    out << "mod = Super\n\n";
+    for (const char* bind : kDefaultBinds) {
+        out << "bind = " << bind << "\n";
+    }
 }
 
-std::string GetTerminalCommand() {
-    return GetValueForKey("terminal", "kitty");
+std::string GetModifierValue() {
+    return GetValueForKey("mod", "Super");
 }
 
-std::string GetLauncherCommand() {
-    return GetValueForKey("apps", "rofi");
+std::vector<std::string> GetBindLines() {
+    return GetValuesForKey("bind");
+}
+
+std::vector<std::string> GetDefaultBindLines() {
+    return std::vector<std::string>(std::begin(kDefaultBinds), std::end(kDefaultBinds));
 }
 
 std::vector<std::string> GetAutostartCommands() {
-    std::vector<std::string> commands;
-
-    std::string config_path = GetConfigPath();
-    if (config_path.empty()) {
-        return commands;
-    }
-
-    std::ifstream in(config_path);
-    if (!in.is_open()) {
-        return commands;
-    }
-
-    std::string line;
-    std::string key;
-    std::string value;
-    while (std::getline(in, line)) {
-        if (!ParseConfigLine(line, key, value)) {
-            continue;
-        }
-
-        if (key == "execute") {
-            commands.push_back(value);
-        }
-    }
-
-    return commands;
+    return GetValuesForKey("execute");
 }

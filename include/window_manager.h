@@ -7,6 +7,8 @@
 #include <unordered_set>
 #include <vector>
 
+#include "keybinds.h"
+
 class WindowManager {
 public:
     static WindowManager* Create();
@@ -38,6 +40,8 @@ private:
 
     void CloseFocusedWindow();
     void GrabKeyWithLockVariants(KeySym keysym, unsigned int modifiers);
+    void LoadBindings();
+    void RunAction(const keybinds::Binding& binding);
     void NotifyClientListChanged();
     void RefocusUnderPointer();
     void ToggleFocusedFullscreen();
@@ -68,8 +72,7 @@ private:
 
     std::unordered_map<Window, bool> managed_windows_;
     std::unordered_set<Window> fullscreen_windows_;
-    std::string terminal_command_;
-    std::string launcher_command_;
+    std::vector<keybinds::Binding> bindings_;
 };
 
 #endif  // ACE_WINDOW_MANAGER_H_

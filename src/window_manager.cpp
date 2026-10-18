@@ -1,6 +1,5 @@
 #include "window_manager.h"
 
-#include <X11/XKBlib.h>
 #include <X11/Xutil.h>
 #include <X11/cursorfont.h>
 #include <X11/keysym.h>
@@ -33,16 +32,6 @@ unsigned long AllocateColor(Display* display, const char* name, unsigned long fa
     return color.pixel;
 }
 
-int WorkspaceIndexForKeysym(KeySym keysym) {
-    if (keysym == XK_0) {
-        return 9;
-    }
-    if (keysym >= XK_1 && keysym <= XK_9) {
-        return static_cast<int>(keysym - XK_1);
-    }
-    return -1;
-}
-
 }
 
 int WindowManager::OnXError(Display* display, XErrorEvent* e) {
@@ -63,9 +52,7 @@ WindowManager* WindowManager::Create() {
 
 WindowManager::WindowManager(Display* display)
     : display_(display),
-      root_(DefaultRootWindow(display)),
-      terminal_command_(GetTerminalCommand()),
-      launcher_command_(GetLauncherCommand()) {}
+      root_(DefaultRootWindow(display)) {}
 
 WindowManager::~WindowManager() {
     XCloseDisplay(display_);
@@ -90,26 +77,7 @@ void WindowManager::Run() {
     XDefineCursor(display_, root_, default_cursor);
     XFlush(display_);
 
-    GrabKeyWithLockVariants(XK_q, Mod4Mask | ControlMask);
-    GrabKeyWithLockVariants(XK_space, Mod4Mask);
-    GrabKeyWithLockVariants(XK_q, Mod4Mask);
-    GrabKeyWithLockVariants(XK_d, Mod4Mask);
-    GrabKeyWithLockVariants(XK_f, Mod4Mask);
-    GrabKeyWithLockVariants(XK_j, Mod4Mask);
-    GrabKeyWithLockVariants(XK_k, Mod4Mask);
-    GrabKeyWithLockVariants(XK_h, Mod4Mask);
-    GrabKeyWithLockVariants(XK_l, Mod4Mask);
-    GrabKeyWithLockVariants(XK_Return, Mod4Mask);
-    GrabKeyWithLockVariants(XK_j, Mod4Mask | ShiftMask);
-    GrabKeyWithLockVariants(XK_k, Mod4Mask | ShiftMask);
-
-    const KeySym workspace_keysyms[] = {
-        XK_1, XK_2, XK_3, XK_4, XK_5, XK_6, XK_7, XK_8, XK_9, XK_0,
-    };
-    for (KeySym keysym : workspace_keysyms) {
-        GrabKeyWithLockVariants(keysym, Mod4Mask);
-        GrabKeyWithLockVariants(keysym, Mod4Mask | ShiftMask);
-    }
+    LoadBindings();
 
     focused_border_pixel_ = AllocateColor(display_, kFocusedBorderColor, WhitePixel(display_, screen));
     normal_border_pixel_ = AllocateColor(display_, kNormalBorderColor, BlackPixel(display_, screen));
@@ -216,70 +184,78 @@ void WindowManager::SendConfigureNotify(Window window) {
 }
 
 void WindowManager::OnKeyPress(const XKeyEvent& e) {
-    KeySym keysym = XkbKeycodeToKeysym(display_, e.keycode, 0, 0);
     unsigned int state = e.state & (ShiftMask | ControlMask | Mod1Mask | Mod4Mask);
 
-    if (state == (Mod4Mask | ControlMask)) {
-        if (keysym == XK_q) {
+    for (const keybinds::Binding& candidate : bindings_) {
+        if (candidate.modifiers != state ||
+            XKeysymToKeycode(display_, candidate.keysym) != e.keycode) {
+            continue;
+        }
+
+        keybinds::Binding binding = candidate;
+        RunAction(binding);
+        return;
+    }
+}
+
+void WindowManager::LoadBindings() {
+    XUngrabKey(display_, AnyKey, AnyModifier, root_);
+
+    bindings_ = keybinds::Load();
+    for (const keybinds::Binding& binding : bindings_) {
+        if (XKeysymToKeycode(display_, binding.keysym) == 0) {
+            const char* name = XKeysymToString(binding.keysym);
+            fprintf(stderr, "ace: config: key %s is not available on this keyboard\n",
+                    name != nullptr ? name : "?");
+            continue;
+        }
+        GrabKeyWithLockVariants(binding.keysym, binding.modifiers);
+    }
+}
+
+void WindowManager::RunAction(const keybinds::Binding& binding) {
+    switch (binding.action) {
+        case keybinds::Action::kExec:
+            LaunchCommand(binding.argument);
+            break;
+        case keybinds::Action::kClose:
+            CloseFocusedWindow();
+            break;
+        case keybinds::Action::kQuit:
             exit(0);
-        }
-        return;
-    }
-
-    if (state == Mod4Mask) {
-        switch (keysym) {
-            case XK_space:
-                LaunchCommand(terminal_command_);
-                return;
-            case XK_q:
-                CloseFocusedWindow();
-                return;
-            case XK_d:
-                LaunchCommand(launcher_command_);
-                return;
-            case XK_f:
-                ToggleFocusedFullscreen();
-                return;
-            case XK_j:
-                FocusRelative(1);
-                return;
-            case XK_k:
-                FocusRelative(-1);
-                return;
-            case XK_h:
-                ChangeMasterRatio(-kMasterRatioStep);
-                return;
-            case XK_l:
-                ChangeMasterRatio(kMasterRatioStep);
-                return;
-            case XK_Return:
-                PromoteFocused();
-                return;
-            default:
-                break;
-        }
-
-        int index = WorkspaceIndexForKeysym(keysym);
-        if (index >= 0) {
-            SwitchWorkspace(index);
-        }
-        return;
-    }
-
-    if (state == (Mod4Mask | ShiftMask)) {
-        if (keysym == XK_j) {
+        case keybinds::Action::kFullscreen:
+            ToggleFocusedFullscreen();
+            break;
+        case keybinds::Action::kFocusNext:
+            FocusRelative(1);
+            break;
+        case keybinds::Action::kFocusPrevious:
+            FocusRelative(-1);
+            break;
+        case keybinds::Action::kSwapNext:
             SwapFocusedRelative(1);
-            return;
-        }
-        if (keysym == XK_k) {
+            break;
+        case keybinds::Action::kSwapPrevious:
             SwapFocusedRelative(-1);
-            return;
-        }
-
-        int index = WorkspaceIndexForKeysym(keysym);
-        if (index >= 0) {
-            MoveFocusedToWorkspace(index);
-        }
+            break;
+        case keybinds::Action::kPromote:
+            PromoteFocused();
+            break;
+        case keybinds::Action::kMasterShrink:
+            ChangeMasterRatio(-kMasterRatioStep);
+            break;
+        case keybinds::Action::kMasterGrow:
+            ChangeMasterRatio(kMasterRatioStep);
+            break;
+        case keybinds::Action::kWorkspace:
+            SwitchWorkspace(binding.index);
+            break;
+        case keybinds::Action::kMoveToWorkspace:
+            MoveFocusedToWorkspace(binding.index);
+            break;
+        case keybinds::Action::kReload:
+            LoadBindings();
+            break;
     }
 }
 
