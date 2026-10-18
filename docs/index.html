@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>ace — a minimal floating window manager</title>
+<title>ace — a minimal tiling window manager</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2218%22 fill=%22%230b0d0f%22/><rect x=%2222%22 y=%2222%22 width=%2256%22 height=%2242%22 rx=%224%22 fill=%22none%22 stroke=%22%23f0a848%22 stroke-width=%226%22/></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -106,38 +106,40 @@
     border:1px dashed var(--border); padding:5px 9px; border-radius:4px;
     background:rgba(11,13,15,.6);
   }
-  .fwin{
-    position:absolute;
-    width:280px;
-    border-radius:6px;
-    border:1px solid var(--border);
-    background:var(--panel);
-    box-shadow:0 18px 40px rgba(0,0,0,.45);
-    user-select:none;
+  .tiles{
+    position:absolute; inset:0;
+    display:grid;
+    grid-template-columns:1.2fr 1fr;
+    grid-template-rows:1fr 1fr;
+    gap:10px;
+    padding:10px;
   }
-  .fwin .bar{
+  .tile{
+    display:flex; flex-direction:column;
+    border-radius:6px;
+    border:2px solid var(--border);
+    background:var(--panel);
+    user-select:none;
+    overflow:hidden;
+    transition:border-color .15s ease;
+  }
+  .tile.master{grid-row:1 / span 2;}
+  .tile.focus{border-color:var(--accent);}
+  .tile .bar{
     display:flex; align-items:center; gap:8px;
     padding:8px 10px;
     background:var(--panel-2);
     border-bottom:1px solid var(--border);
-    cursor:grab;
     font-family:var(--mono); font-size:.72rem; color:var(--muted);
   }
-  .fwin.active .bar{cursor:grabbing;}
-  .fwin .bar .sq{width:8px; height:8px; border:1.4px solid var(--muted); border-radius:1px;}
-  .fwin .body{padding:14px; font-family:var(--mono); font-size:.72rem; color:var(--muted);}
-  .fwin .body .ln{height:8px; background:var(--border); border-radius:2px; margin-bottom:8px;}
-  .fwin .body .ln.w1{width:78%;}
-  .fwin .body .ln.w2{width:52%;}
-  .fwin .body .ln.w3{width:64%;}
-  .fwin .resize{
-    position:absolute; right:0; bottom:0; width:16px; height:16px;
-    cursor:nwse-resize;
-    background:
-      linear-gradient(135deg, transparent 0 40%, var(--accent-dim) 40% 55%, transparent 55% 100%);
-  }
-  .fwin.term .body{color:#c9c2ab;}
-  .fwin.term .body .k{color:var(--accent);}
+  .tile .bar .sq{width:8px; height:8px; border:1.4px solid var(--muted); border-radius:1px;}
+  .tile .body{padding:14px; font-family:var(--mono); font-size:.72rem; color:var(--muted);}
+  .tile .body .ln{height:8px; background:var(--border); border-radius:2px; margin-bottom:8px;}
+  .tile .body .ln.w1{width:78%;}
+  .tile .body .ln.w2{width:52%;}
+  .tile .body .ln.w3{width:64%;}
+  .tile.term .body{color:#c9c2ab;}
+  .tile.term .body .k{color:var(--accent);}
 
   section{padding:56px 0; border-top:1px solid var(--border);}
   h2{
@@ -221,40 +223,48 @@
 
 <main>
   <section class="hero wrap" style="border-top:none;">
-    <h1>A floating window manager that gets out of the way.</h1>
-    <p class="lede">ace is a minimal X11 window manager written in C++17. No tiling to fight, no compositor bloat — just windows you move and resize by hand, and a footprint of about 5MB of RAM.</p>
+    <h1>A tiling window manager that gets out of the way.</h1>
+    <p class="lede">ace is a minimal X11 window manager written in C++17. No compositor bloat, no windows to drag around — every new window is tiled automatically into a master and stack layout, with a footprint of about 5MB of RAM.</p>
     <div class="ctas">
       <a class="btn primary" href="#install">Build it</a>
       <a class="btn ghost" href="https://github.com/fuewwa/ace">View on GitHub</a>
     </div>
 
     <div class="desktop" id="desktop">
-      <div class="fwin term" id="win1" style="left:36px; top:34px; width:300px;">
-        <div class="bar"><span class="sq"></span>alacritty</div>
-        <div class="body">
-          <div class="ln w1"><span class="k">~/ace $</span></div>
-          <div class="ln w2"></div>
-          <div class="ln w3"></div>
+      <div class="tiles">
+        <div class="tile master term focus">
+          <div class="bar"><span class="sq"></span>kitty</div>
+          <div class="body">
+            <div class="ln w1"><span class="k">~/ace $</span></div>
+            <div class="ln w2"></div>
+            <div class="ln w3"></div>
+          </div>
         </div>
-        <div class="resize"></div>
-      </div>
-      <div class="fwin" id="win2" style="left:250px; top:150px; width:260px;">
-        <div class="bar"><span class="sq"></span>notes.md</div>
-        <div class="body">
-          <div class="ln w1"></div>
-          <div class="ln w3"></div>
-          <div class="ln w2"></div>
+        <div class="tile">
+          <div class="bar"><span class="sq"></span>notes.md</div>
+          <div class="body">
+            <div class="ln w1"></div>
+            <div class="ln w3"></div>
+            <div class="ln w2"></div>
+          </div>
         </div>
-        <div class="resize"></div>
+        <div class="tile">
+          <div class="bar"><span class="sq"></span>htop</div>
+          <div class="body">
+            <div class="ln w2"></div>
+            <div class="ln w1"></div>
+            <div class="ln w3"></div>
+          </div>
+        </div>
       </div>
-      <div class="hint">drag a title bar — that's Alt + left click in ace</div>
+      <div class="hint">hover a window to focus it — focus follows the mouse in ace</div>
     </div>
   </section>
 
   <section>
     <div class="wrap">
       <h2>Small on purpose</h2>
-      <p class="sub">ace does one job: manage floating windows. Everything else — the terminal, the launcher — is a program you already have.</p>
+      <p class="sub">ace does one job: tile your windows. Everything else — the terminal, the launcher — is a program you already have.</p>
       <div class="stats">
         <div class="stat"><div class="num">~5MB</div><div class="lbl">resident memory</div></div>
         <div class="stat"><div class="num">C++17</div><div class="lbl">language</div></div>
@@ -269,12 +279,15 @@
       <h2>Keybinds</h2>
       <p class="sub">The full set. Nothing is hidden behind a config file until you decide to change it.</p>
       <div class="keys">
-        <div class="krow"><div class="combo"><kbd>Alt</kbd><span class="plus">+</span>drag</div><div class="desc">Move a window</div></div>
-        <div class="krow"><div class="combo"><kbd>Alt</kbd><span class="plus">+</span>right drag</div><div class="desc">Resize a window</div></div>
+        <div class="krow"><div class="combo"><kbd>Super</kbd><span class="plus">+</span><kbd>J</kbd> / <kbd>K</kbd></div><div class="desc">Focus the next or previous window</div></div>
+        <div class="krow"><div class="combo"><kbd>Super</kbd><span class="plus">+</span><kbd>Shift</kbd><span class="plus">+</span><kbd>J</kbd> / <kbd>K</kbd></div><div class="desc">Swap the focused window with the next or previous one</div></div>
+        <div class="krow"><div class="combo"><kbd>Super</kbd><span class="plus">+</span><kbd>Return</kbd></div><div class="desc">Make the focused window the master</div></div>
+        <div class="krow"><div class="combo"><kbd>Super</kbd><span class="plus">+</span><kbd>H</kbd> / <kbd>L</kbd></div><div class="desc">Shrink or grow the master area</div></div>
         <div class="krow"><div class="combo"><kbd>Super</kbd><span class="plus">+</span><kbd>Space</kbd></div><div class="desc">Open a terminal</div></div>
         <div class="krow"><div class="combo"><kbd>Super</kbd><span class="plus">+</span><kbd>D</kbd></div><div class="desc">Open the application launcher</div></div>
         <div class="krow"><div class="combo"><kbd>Super</kbd><span class="plus">+</span><kbd>F</kbd></div><div class="desc">Make fullscreen</div></div>
         <div class="krow"><div class="combo"><kbd>Super</kbd><span class="plus">+</span><kbd>0</kbd>–<kbd>9</kbd></div><div class="desc">Switch workspace</div></div>
+        <div class="krow"><div class="combo"><kbd>Super</kbd><span class="plus">+</span><kbd>Shift</kbd><span class="plus">+</span><kbd>0</kbd>–<kbd>9</kbd></div><div class="desc">Move the focused window to a workspace</div></div>
         <div class="krow"><div class="combo"><kbd>Super</kbd><span class="plus">+</span><kbd>Q</kbd></div><div class="desc">Close a window</div></div>
         <div class="krow"><div class="combo"><kbd>Super</kbd><span class="plus">+</span><kbd>Ctrl</kbd><span class="plus">+</span><kbd>Q</kbd></div><div class="desc">Quit ace</div></div>
       </div>
@@ -321,51 +334,13 @@
 
 <script>
 (function(){
-  function makeDraggable(el, boundsEl){
-    var bar = el.querySelector('.bar');
-    var dragging = false, sx=0, sy=0, ox=0, oy=0;
-    bar.addEventListener('mousedown', function(e){
-      dragging = true;
-      el.classList.add('active');
-      el.parentNode.appendChild(el);
-      sx = e.clientX; sy = e.clientY;
-      ox = el.offsetLeft; oy = el.offsetTop;
-      e.preventDefault();
+  var tiles = document.querySelectorAll('.tile');
+  tiles.forEach(function(tile){
+    tile.addEventListener('mouseenter', function(){
+      tiles.forEach(function(other){ other.classList.remove('focus'); });
+      tile.classList.add('focus');
     });
-    window.addEventListener('mousemove', function(e){
-      if(!dragging) return;
-      var b = boundsEl.getBoundingClientRect();
-      var nx = ox + (e.clientX - sx);
-      var ny = oy + (e.clientY - sy);
-      nx = Math.max(0, Math.min(nx, b.width - el.offsetWidth));
-      ny = Math.max(0, Math.min(ny, b.height - el.offsetHeight));
-      el.style.left = nx + 'px';
-      el.style.top = ny + 'px';
-    });
-    window.addEventListener('mouseup', function(){
-      dragging = false;
-      el.classList.remove('active');
-    });
-
-    var handle = el.querySelector('.resize');
-    var resizing = false, rsx=0, rsy=0, rw=0, rh=0;
-    handle.addEventListener('mousedown', function(e){
-      resizing = true;
-      rsx = e.clientX; rsy = e.clientY;
-      rw = el.offsetWidth; rh = el.offsetHeight;
-      e.stopPropagation();
-      e.preventDefault();
-    });
-    window.addEventListener('mousemove', function(e){
-      if(!resizing) return;
-      var nw = Math.max(170, rw + (e.clientX - rsx));
-      el.style.width = nw + 'px';
-    });
-    window.addEventListener('mouseup', function(){ resizing = false; });
-  }
-  var desktop = document.getElementById('desktop');
-  makeDraggable(document.getElementById('win1'), desktop);
-  makeDraggable(document.getElementById('win2'), desktop);
+  });
 })();
 </script>
 </body>

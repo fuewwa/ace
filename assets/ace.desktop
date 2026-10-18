@@ -1,5 +1,5 @@
 [Desktop Entry]
 Name=ace
-Comment=A minimal floating window manager for X11
+Comment=A minimal tiling window manager for X11
 Exec=/usr/bin/ace
 Type=XSession

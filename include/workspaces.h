@@ -2,6 +2,7 @@
 #define ACE_WORKSPACES_H_
 
 #include <X11/Xlib.h>
+#include <vector>
 
 namespace workspaces {
 
@@ -12,6 +13,10 @@ void AddWindow(Window window);
 void RemoveWindow(Window window);
 void SwitchTo(int index);
 int GetCurrentIndex();
+const std::vector<Window>& GetWindows();
+void MoveWindow(Window window, int index);
+void Swap(Window first, Window second);
+void Promote(Window window);
 
 }  // namespace workspaces
 

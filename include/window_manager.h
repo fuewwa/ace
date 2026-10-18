@@ -4,6 +4,7 @@
 #include <X11/Xlib.h>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 class WindowManager {
@@ -28,9 +29,6 @@ private:
 
     void OnMapRequest(const XMapRequestEvent& e);
     void OnConfigureRequest(const XConfigureRequestEvent& e);
-    void OnButtonPress(const XButtonEvent& e);
-    void OnButtonRelease(const XButtonEvent& e);
-    void OnMotionNotify(const XMotionEvent& e);
     void OnKeyPress(const XKeyEvent& e);
     void OnDestroyNotify(const XDestroyWindowEvent& e);
     void OnEnterNotify(const XCrossingEvent& e);
@@ -44,18 +42,32 @@ private:
     void RefocusUnderPointer();
     void ToggleFocusedFullscreen();
     void SetFullscreen(Window window, bool fullscreen);
+    void ExitFullscreenOnCurrentWorkspace();
+
+    void Retile();
+    void ApplyGeometry(Window window, const Geometry& geometry);
+    void PlaceFullscreen(Window window);
+    void UpdateBorders();
+    void FocusWindow(Window window);
+    void FocusRelative(int direction);
+    void SwapFocusedRelative(int direction);
+    void PromoteFocused();
+    void ChangeMasterRatio(double delta);
+    void SwitchWorkspace(int index);
+    void MoveFocusedToWorkspace(int index);
+    void SendConfigureNotify(Window window);
+    void WarpPointerToWindow(Window window);
 
     Display* display_;
     Window root_;
 
-    Window drag_start_window_ = None;
-    XButtonEvent drag_start_button_;
-    XWindowAttributes drag_start_attributes_;
-
     Window focused_window_ = None;
+    double master_ratio_ = 0.55;
+    unsigned long focused_border_pixel_ = 0;
+    unsigned long normal_border_pixel_ = 0;
 
     std::unordered_map<Window, bool> managed_windows_;
-    std::unordered_map<Window, Geometry> fullscreen_windows_;
+    std::unordered_set<Window> fullscreen_windows_;
     std::string terminal_command_;
     std::string launcher_command_;
 };

@@ -4,14 +4,46 @@
 #include <X11/Xutil.h>
 #include <X11/cursorfont.h>
 #include <X11/keysym.h>
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
-#include <utility>
 
 #include "config.h"
 #include "ewmh.h"
 #include "process.h"
 #include "workspaces.h"
+
+namespace {
+
+constexpr int kBorderWidth = 2;
+constexpr int kGap = 6;
+constexpr double kMasterRatioStep = 0.05;
+constexpr double kMinMasterRatio = 0.15;
+constexpr double kMaxMasterRatio = 0.85;
+constexpr const char* kFocusedBorderColor = "#5e81ac";
+constexpr const char* kNormalBorderColor = "#3b4252";
+
+unsigned long AllocateColor(Display* display, const char* name, unsigned long fallback) {
+    Colormap colormap = DefaultColormap(display, DefaultScreen(display));
+    XColor color;
+    if (!XParseColor(display, colormap, name, &color) ||
+        !XAllocColor(display, colormap, &color)) {
+        return fallback;
+    }
+    return color.pixel;
+}
+
+int WorkspaceIndexForKeysym(KeySym keysym) {
+    if (keysym == XK_0) {
+        return 9;
+    }
+    if (keysym >= XK_1 && keysym <= XK_9) {
+        return static_cast<int>(keysym - XK_1);
+    }
+    return -1;
+}
+
+}
 
 int WindowManager::OnXError(Display* display, XErrorEvent* e) {
     char buffer[1024];
@@ -58,42 +90,29 @@ void WindowManager::Run() {
     XDefineCursor(display_, root_, default_cursor);
     XFlush(display_);
 
-    XGrabButton(
-        display_,
-        Button1,
-        Mod1Mask,
-        root_,
-        False,
-        ButtonPressMask | ButtonReleaseMask | PointerMotionMask,
-        GrabModeAsync,
-        GrabModeAsync,
-        None,
-        None);
-
-    XGrabButton(
-        display_,
-        Button3,
-        Mod1Mask,
-        root_,
-        False,
-        ButtonPressMask | ButtonReleaseMask | PointerMotionMask,
-        GrabModeAsync,
-        GrabModeAsync,
-        None,
-        None);
-
     GrabKeyWithLockVariants(XK_q, Mod4Mask | ControlMask);
     GrabKeyWithLockVariants(XK_space, Mod4Mask);
     GrabKeyWithLockVariants(XK_q, Mod4Mask);
     GrabKeyWithLockVariants(XK_d, Mod4Mask);
     GrabKeyWithLockVariants(XK_f, Mod4Mask);
+    GrabKeyWithLockVariants(XK_j, Mod4Mask);
+    GrabKeyWithLockVariants(XK_k, Mod4Mask);
+    GrabKeyWithLockVariants(XK_h, Mod4Mask);
+    GrabKeyWithLockVariants(XK_l, Mod4Mask);
+    GrabKeyWithLockVariants(XK_Return, Mod4Mask);
+    GrabKeyWithLockVariants(XK_j, Mod4Mask | ShiftMask);
+    GrabKeyWithLockVariants(XK_k, Mod4Mask | ShiftMask);
 
     const KeySym workspace_keysyms[] = {
         XK_1, XK_2, XK_3, XK_4, XK_5, XK_6, XK_7, XK_8, XK_9, XK_0,
     };
     for (KeySym keysym : workspace_keysyms) {
         GrabKeyWithLockVariants(keysym, Mod4Mask);
+        GrabKeyWithLockVariants(keysym, Mod4Mask | ShiftMask);
     }
+
+    focused_border_pixel_ = AllocateColor(display_, kFocusedBorderColor, WhitePixel(display_, screen));
+    normal_border_pixel_ = AllocateColor(display_, kNormalBorderColor, BlackPixel(display_, screen));
 
     ewmh::Initialize(display_, root_);
     workspaces::Initialize(display_, root_);
@@ -112,16 +131,6 @@ void WindowManager::Run() {
                 break;
             case ConfigureRequest:
                 OnConfigureRequest(e.xconfigurerequest);
-                break;
-            case ButtonPress:
-                OnButtonPress(e.xbutton);
-                break;
-            case ButtonRelease:
-                OnButtonRelease(e.xbutton);
-                break;
-            case MotionNotify:
-                while (XCheckTypedWindowEvent(display_, e.xmotion.window, MotionNotify, &e)) {}
-                OnMotionNotify(e.xmotion);
                 break;
             case KeyPress:
                 OnKeyPress(e.xkey);
@@ -142,24 +151,36 @@ void WindowManager::Run() {
 }
 
 void WindowManager::OnMapRequest(const XMapRequestEvent& e) {
+    if (managed_windows_.count(e.window) > 0) {
+        XMapWindow(display_, e.window);
+        return;
+    }
+
+    if (!ewmh::ShouldTile(display_, e.window)) {
+        XMapWindow(display_, e.window);
+        return;
+    }
+
+    ExitFullscreenOnCurrentWorkspace();
+
     XSelectInput(display_, e.window, EnterWindowMask);
-    XMapWindow(display_, e.window);
     managed_windows_[e.window] = true;
     workspaces::AddWindow(e.window);
     NotifyClientListChanged();
 
-    XWindowAttributes attrs;
-    XGetWindowAttributes(display_, e.window, &attrs);
-    if (attrs.x == 0 && attrs.y == 0) {
-        XMoveWindow(display_, e.window, 50, 50);
-    }
+    Retile();
+    XMapWindow(display_, e.window);
 
-    XSetInputFocus(display_, e.window, RevertToPointerRoot, CurrentTime);
-    focused_window_ = e.window;
-    ewmh::UpdateActiveWindow(display_, root_, e.window);
+    FocusWindow(e.window);
+    WarpPointerToWindow(e.window);
 }
 
 void WindowManager::OnConfigureRequest(const XConfigureRequestEvent& e) {
+    if (managed_windows_.count(e.window) > 0) {
+        SendConfigureNotify(e.window);
+        return;
+    }
+
     XWindowChanges changes;
     changes.x = e.x;
     changes.y = e.y;
@@ -171,74 +192,93 @@ void WindowManager::OnConfigureRequest(const XConfigureRequestEvent& e) {
     XConfigureWindow(display_, e.window, e.value_mask, &changes);
 }
 
-void WindowManager::OnButtonPress(const XButtonEvent& e) {
-    if (e.subwindow == None) {
+void WindowManager::SendConfigureNotify(Window window) {
+    XWindowAttributes attrs;
+    if (!XGetWindowAttributes(display_, window, &attrs)) {
         return;
     }
 
-    XGetWindowAttributes(display_, e.subwindow, &drag_start_attributes_);
-    drag_start_button_ = e;
-    drag_start_window_ = e.subwindow;
+    XConfigureEvent event = {};
+    event.type = ConfigureNotify;
+    event.display = display_;
+    event.event = window;
+    event.window = window;
+    event.x = attrs.x;
+    event.y = attrs.y;
+    event.width = attrs.width;
+    event.height = attrs.height;
+    event.border_width = attrs.border_width;
+    event.above = None;
+    event.override_redirect = False;
 
-    XRaiseWindow(display_, e.subwindow);
-}
-
-void WindowManager::OnButtonRelease(const XButtonEvent&) {
-    drag_start_window_ = None;
-}
-
-void WindowManager::OnMotionNotify(const XMotionEvent& e) {
-    if (drag_start_window_ == None) {
-        return;
-    }
-
-    int delta_x = e.x_root - drag_start_button_.x_root;
-    int delta_y = e.y_root - drag_start_button_.y_root;
-
-    if (drag_start_button_.button == Button1) {
-        int dest_x = drag_start_attributes_.x + delta_x;
-        int dest_y = drag_start_attributes_.y + delta_y;
-        XMoveWindow(display_, drag_start_window_, dest_x, dest_y);
-    } else if (drag_start_button_.button == Button3) {
-        int dest_width = drag_start_attributes_.width + delta_x;
-        int dest_height = drag_start_attributes_.height + delta_y;
-        dest_width = dest_width > 20 ? dest_width : 20;
-        dest_height = dest_height > 20 ? dest_height : 20;
-        XResizeWindow(display_, drag_start_window_, dest_width, dest_height);
-    }
+    XSendEvent(display_, window, False, StructureNotifyMask,
+               reinterpret_cast<XEvent*>(&event));
 }
 
 void WindowManager::OnKeyPress(const XKeyEvent& e) {
     KeySym keysym = XkbKeycodeToKeysym(display_, e.keycode, 0, 0);
+    unsigned int state = e.state & (ShiftMask | ControlMask | Mod1Mask | Mod4Mask);
 
-    if (keysym == XK_q && (e.state & Mod4Mask) && (e.state & ControlMask)) {
-        exit(0);
+    if (state == (Mod4Mask | ControlMask)) {
+        if (keysym == XK_q) {
+            exit(0);
+        }
+        return;
     }
 
-    if (keysym == XK_space && (e.state & Mod4Mask)) {
-        LaunchCommand(terminal_command_);
+    if (state == Mod4Mask) {
+        switch (keysym) {
+            case XK_space:
+                LaunchCommand(terminal_command_);
+                return;
+            case XK_q:
+                CloseFocusedWindow();
+                return;
+            case XK_d:
+                LaunchCommand(launcher_command_);
+                return;
+            case XK_f:
+                ToggleFocusedFullscreen();
+                return;
+            case XK_j:
+                FocusRelative(1);
+                return;
+            case XK_k:
+                FocusRelative(-1);
+                return;
+            case XK_h:
+                ChangeMasterRatio(-kMasterRatioStep);
+                return;
+            case XK_l:
+                ChangeMasterRatio(kMasterRatioStep);
+                return;
+            case XK_Return:
+                PromoteFocused();
+                return;
+            default:
+                break;
+        }
+
+        int index = WorkspaceIndexForKeysym(keysym);
+        if (index >= 0) {
+            SwitchWorkspace(index);
+        }
+        return;
     }
 
-    if (keysym == XK_q && (e.state & Mod4Mask) && !(e.state & ControlMask)) {
-        CloseFocusedWindow();
-    }
+    if (state == (Mod4Mask | ShiftMask)) {
+        if (keysym == XK_j) {
+            SwapFocusedRelative(1);
+            return;
+        }
+        if (keysym == XK_k) {
+            SwapFocusedRelative(-1);
+            return;
+        }
 
-    if (keysym == XK_d && (e.state & Mod4Mask)) {
-        LaunchCommand(launcher_command_);
-    }
-
-    if (keysym == XK_f && (e.state & Mod4Mask)) {
-        ToggleFocusedFullscreen();
-    }
-
-    const std::pair<KeySym, int> workspace_bindings[] = {
-        {XK_1, 0}, {XK_2, 1}, {XK_3, 2}, {XK_4, 3}, {XK_5, 4},
-        {XK_6, 5}, {XK_7, 6}, {XK_8, 7}, {XK_9, 8}, {XK_0, 9},
-    };
-    for (const auto& binding : workspace_bindings) {
-        if (keysym == binding.first && (e.state & Mod4Mask)) {
-            workspaces::SwitchTo(binding.second);
-            RefocusUnderPointer();
+        int index = WorkspaceIndexForKeysym(keysym);
+        if (index >= 0) {
+            MoveFocusedToWorkspace(index);
         }
     }
 }
@@ -266,14 +306,27 @@ void WindowManager::GrabKeyWithLockVariants(KeySym keysym, unsigned int modifier
 }
 
 void WindowManager::OnEnterNotify(const XCrossingEvent& e) {
+    if (managed_windows_.count(e.window) == 0 || e.window == focused_window_) {
+        return;
+    }
+
     XWindowAttributes attrs;
     if (!XGetWindowAttributes(display_, e.window, &attrs) || attrs.map_state != IsViewable) {
         return;
     }
 
-    XSetInputFocus(display_, e.window, RevertToPointerRoot, CurrentTime);
-    focused_window_ = e.window;
-    ewmh::UpdateActiveWindow(display_, root_, e.window);
+    FocusWindow(e.window);
+}
+
+void WindowManager::FocusWindow(Window window) {
+    if (window == None) {
+        XSetInputFocus(display_, PointerRoot, RevertToPointerRoot, CurrentTime);
+    } else {
+        XSetInputFocus(display_, window, RevertToPointerRoot, CurrentTime);
+    }
+    focused_window_ = window;
+    ewmh::UpdateActiveWindow(display_, root_, window);
+    UpdateBorders();
 }
 
 void WindowManager::RefocusUnderPointer() {
@@ -287,7 +340,9 @@ void WindowManager::RefocusUnderPointer() {
 
     bool has_child = XQueryPointer(
         display_, root_, &root_return, &child_return,
-        &root_x, &root_y, &win_x, &win_y, &mask_return) && child_return != None;
+        &root_x, &root_y, &win_x, &win_y, &mask_return) &&
+        child_return != None &&
+        managed_windows_.count(child_return) > 0;
 
     if (has_child) {
         XWindowAttributes attrs;
@@ -296,47 +351,205 @@ void WindowManager::RefocusUnderPointer() {
     }
 
     if (has_child) {
-        XSetInputFocus(display_, child_return, RevertToPointerRoot, CurrentTime);
-        focused_window_ = child_return;
-        ewmh::UpdateActiveWindow(display_, root_, child_return);
-    } else {
-        XSetInputFocus(display_, PointerRoot, RevertToPointerRoot, CurrentTime);
-        focused_window_ = None;
-        ewmh::UpdateActiveWindow(display_, root_, None);
+        FocusWindow(child_return);
+        return;
+    }
+
+    const std::vector<Window>& windows = workspaces::GetWindows();
+    FocusWindow(windows.empty() ? None : windows.back());
+}
+
+void WindowManager::WarpPointerToWindow(Window window) {
+    if (window == None) {
+        return;
+    }
+
+    XWindowAttributes attrs;
+    if (!XGetWindowAttributes(display_, window, &attrs)) {
+        return;
+    }
+
+    XWarpPointer(display_, None, window, 0, 0, 0, 0, attrs.width / 2, attrs.height / 2);
+}
+
+void WindowManager::ApplyGeometry(Window window, const Geometry& geometry) {
+    int width = std::max(1, geometry.width - 2 * kBorderWidth);
+    int height = std::max(1, geometry.height - 2 * kBorderWidth);
+
+    XSetWindowBorderWidth(display_, window, kBorderWidth);
+    XMoveResizeWindow(display_, window, geometry.x, geometry.y,
+                       static_cast<unsigned int>(width),
+                       static_cast<unsigned int>(height));
+}
+
+void WindowManager::PlaceFullscreen(Window window) {
+    int screen = DefaultScreen(display_);
+    int screen_width = DisplayWidth(display_, screen);
+    int screen_height = DisplayHeight(display_, screen);
+
+    XSetWindowBorderWidth(display_, window, 0);
+    XMoveResizeWindow(display_, window, 0, 0,
+                       static_cast<unsigned int>(screen_width),
+                       static_cast<unsigned int>(screen_height));
+    XRaiseWindow(display_, window);
+}
+
+void WindowManager::Retile() {
+    int screen = DefaultScreen(display_);
+    int screen_width = DisplayWidth(display_, screen);
+    int screen_height = DisplayHeight(display_, screen);
+
+    std::vector<Window> tiled;
+    for (Window window : workspaces::GetWindows()) {
+        if (fullscreen_windows_.count(window) > 0) {
+            PlaceFullscreen(window);
+        } else {
+            tiled.push_back(window);
+        }
+    }
+
+    if (!tiled.empty()) {
+        Geometry area{kGap, kGap, screen_width - 2 * kGap, screen_height - 2 * kGap};
+
+        if (tiled.size() == 1) {
+            ApplyGeometry(tiled[0], area);
+        } else {
+            int master_width = static_cast<int>((area.width - kGap) * master_ratio_);
+            ApplyGeometry(tiled[0], Geometry{area.x, area.y, master_width, area.height});
+
+            int stack_x = area.x + master_width + kGap;
+            int stack_width = area.width - master_width - kGap;
+            int stack_count = static_cast<int>(tiled.size()) - 1;
+            int cell_height = (area.height - kGap * (stack_count - 1)) / stack_count;
+
+            int y = area.y;
+            for (int i = 0; i < stack_count; ++i) {
+                int height = (i == stack_count - 1) ? (area.y + area.height - y) : cell_height;
+                ApplyGeometry(tiled[i + 1], Geometry{stack_x, y, stack_width, height});
+                y += height + kGap;
+            }
+        }
+    }
+
+    UpdateBorders();
+}
+
+void WindowManager::UpdateBorders() {
+    for (Window window : workspaces::GetWindows()) {
+        if (fullscreen_windows_.count(window) > 0) {
+            continue;
+        }
+        unsigned long pixel =
+            window == focused_window_ ? focused_border_pixel_ : normal_border_pixel_;
+        XSetWindowBorder(display_, window, pixel);
+    }
+}
+
+void WindowManager::FocusRelative(int direction) {
+    const std::vector<Window>& windows = workspaces::GetWindows();
+    if (windows.empty() || fullscreen_windows_.count(focused_window_) > 0) {
+        return;
+    }
+
+    int count = static_cast<int>(windows.size());
+    auto it = std::find(windows.begin(), windows.end(), focused_window_);
+    int index = 0;
+    if (it != windows.end()) {
+        index = (static_cast<int>(it - windows.begin()) + direction + count) % count;
+    }
+
+    Window target = windows[index];
+    FocusWindow(target);
+    WarpPointerToWindow(target);
+}
+
+void WindowManager::SwapFocusedRelative(int direction) {
+    const std::vector<Window>& windows = workspaces::GetWindows();
+    if (windows.size() < 2 || focused_window_ == None ||
+        fullscreen_windows_.count(focused_window_) > 0) {
+        return;
+    }
+
+    auto it = std::find(windows.begin(), windows.end(), focused_window_);
+    if (it == windows.end()) {
+        return;
+    }
+
+    int count = static_cast<int>(windows.size());
+    int index = static_cast<int>(it - windows.begin());
+    int other = (index + direction + count) % count;
+
+    Window first = windows[index];
+    Window second = windows[other];
+    workspaces::Swap(first, second);
+
+    Retile();
+    WarpPointerToWindow(focused_window_);
+}
+
+void WindowManager::PromoteFocused() {
+    if (focused_window_ == None || fullscreen_windows_.count(focused_window_) > 0) {
+        return;
+    }
+
+    workspaces::Promote(focused_window_);
+    Retile();
+    WarpPointerToWindow(focused_window_);
+}
+
+void WindowManager::ChangeMasterRatio(double delta) {
+    master_ratio_ = std::min(kMaxMasterRatio, std::max(kMinMasterRatio, master_ratio_ + delta));
+    Retile();
+    WarpPointerToWindow(focused_window_);
+}
+
+void WindowManager::SwitchWorkspace(int index) {
+    workspaces::SwitchTo(index);
+    Retile();
+    RefocusUnderPointer();
+}
+
+void WindowManager::MoveFocusedToWorkspace(int index) {
+    if (focused_window_ == None || index == workspaces::GetCurrentIndex()) {
+        return;
+    }
+
+    workspaces::MoveWindow(focused_window_, index);
+    Retile();
+    RefocusUnderPointer();
+}
+
+void WindowManager::ExitFullscreenOnCurrentWorkspace() {
+    std::vector<Window> windows = workspaces::GetWindows();
+    for (Window window : windows) {
+        if (fullscreen_windows_.count(window) > 0) {
+            SetFullscreen(window, false);
+        }
     }
 }
 
 void WindowManager::SetFullscreen(Window window, bool fullscreen) {
+    if (managed_windows_.count(window) == 0) {
+        return;
+    }
+
     bool currently_fullscreen = fullscreen_windows_.count(window) > 0;
     if (fullscreen == currently_fullscreen) {
         return;
     }
 
     if (fullscreen) {
-        XWindowAttributes attrs;
-        if (!XGetWindowAttributes(display_, window, &attrs)) {
-            return;
-        }
-        fullscreen_windows_[window] = Geometry{attrs.x, attrs.y, attrs.width, attrs.height};
-
-        int screen = DefaultScreen(display_);
-        int screen_width = DisplayWidth(display_, screen);
-        int screen_height = DisplayHeight(display_, screen);
-
-        XMoveResizeWindow(display_, window, 0, 0, screen_width, screen_height);
-        XRaiseWindow(display_, window);
+        fullscreen_windows_.insert(window);
     } else {
-        auto it = fullscreen_windows_.find(window);
-        if (it == fullscreen_windows_.end()) {
-            return;
-        }
-        const Geometry& geometry = it->second;
-        XMoveResizeWindow(display_, window, geometry.x, geometry.y,
-                           geometry.width, geometry.height);
-        fullscreen_windows_.erase(it);
+        fullscreen_windows_.erase(window);
     }
 
     ewmh::SetFullscreen(display_, window, fullscreen);
+    Retile();
+
+    if (!fullscreen && window == focused_window_) {
+        WarpPointerToWindow(window);
+    }
 }
 
 void WindowManager::ToggleFocusedFullscreen() {
@@ -396,17 +609,20 @@ void WindowManager::CloseFocusedWindow() {
 }
 
 void WindowManager::OnDestroyNotify(const XDestroyWindowEvent& e) {
-    managed_windows_.erase(e.window);
+    bool was_managed = managed_windows_.erase(e.window) > 0;
     fullscreen_windows_.erase(e.window);
     workspaces::RemoveWindow(e.window);
     NotifyClientListChanged();
 
-    if (drag_start_window_ == e.window) {
-        drag_start_window_ = None;
+    if (!was_managed) {
+        return;
     }
+
+    Retile();
+
     if (focused_window_ == e.window) {
         focused_window_ = None;
-        ewmh::UpdateActiveWindow(display_, root_, None);
+        RefocusUnderPointer();
     }
 }
 

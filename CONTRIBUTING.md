@@ -39,7 +39,7 @@ your primary window manager.
 
 Current priorities:
 
-- Basic stability of the floating mode;
+- Basic stability of the tiling layout;
 - Multi-monitor support;
 
 Before sending a pull request for new features, please check with us that the feature is something we want to see in ace by opening an issue which has "feature request" or "enhancement" in its title.

@@ -85,6 +85,49 @@ void SetFullscreen(Display* display, Window window, bool fullscreen) {
     }
 }
 
+bool ShouldTile(Display* display, Window window) {
+    Atom net_wm_window_type = XInternAtom(display, "_NET_WM_WINDOW_TYPE", False);
+
+    const char* skipped_names[] = {
+        "_NET_WM_WINDOW_TYPE_DOCK",
+        "_NET_WM_WINDOW_TYPE_DESKTOP",
+        "_NET_WM_WINDOW_TYPE_SPLASH",
+        "_NET_WM_WINDOW_TYPE_MENU",
+        "_NET_WM_WINDOW_TYPE_DROPDOWN_MENU",
+        "_NET_WM_WINDOW_TYPE_POPUP_MENU",
+        "_NET_WM_WINDOW_TYPE_TOOLTIP",
+        "_NET_WM_WINDOW_TYPE_NOTIFICATION",
+        "_NET_WM_WINDOW_TYPE_COMBO",
+        "_NET_WM_WINDOW_TYPE_DND",
+    };
+
+    Atom actual_type = None;
+    int actual_format = 0;
+    unsigned long item_count = 0;
+    unsigned long bytes_after = 0;
+    unsigned char* data = nullptr;
+
+    int status = XGetWindowProperty(
+        display, window, net_wm_window_type, 0, 32, False, XA_ATOM,
+        &actual_type, &actual_format, &item_count, &bytes_after, &data);
+
+    bool tile = true;
+    if (status == Success && data != nullptr) {
+        if (item_count > 0) {
+            Atom first_type = reinterpret_cast<Atom*>(data)[0];
+            for (const char* name : skipped_names) {
+                if (first_type == XInternAtom(display, name, False)) {
+                    tile = false;
+                    break;
+                }
+            }
+        }
+        XFree(data);
+    }
+
+    return tile;
+}
+
 bool ResolveFullscreenRequest(Display* display, const XClientMessageEvent& e,
                                bool currently_fullscreen, bool* want_fullscreen) {
     Atom net_wm_state = XInternAtom(display, "_NET_WM_STATE", False);

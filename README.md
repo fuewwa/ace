@@ -9,18 +9,23 @@
 ![build](https://github.com/fuewwa/ace/actions/workflows/build.yml/badge.svg)
 [![Distros](https://img.shields.io/badge/distributions-arch_linux,_debian-green.svg)](https://shields.io/)
 
-A minimal floating window manager for X11, written in C++. One of biggest plus: ace uses only ~5 RAM megabytes
+A minimal tiling window manager for X11, written in C++. One of biggest plus: ace uses only ~5 RAM megabytes
 
 ## Keybinds
 
-- Maps new windows as soon as they are created
-- Move a window: `Alt` + left mouse button + drag
-- Resize a window: `Alt` + right mouse button + drag
+- Maps new windows as soon as they are created and tiles them automatically
+- Windows are arranged in a master and stack layout: the first window takes the left side, the rest are stacked on the right
+- Focus follows the mouse pointer
+- Focus the next or previous window: `Super` + `J` / `Super` + `K`
+- Swap the focused window with the next or previous one: `Super` + `Shift` + `J` / `Super` + `Shift` + `K`
+- Make the focused window the master: `Super` + `Return`
+- Shrink or grow the master area: `Super` + `H` / `Super` + `L`
 - Quit the window manager: `Super` + `Ctrl` + `Q`
 - Close a window: `Super` + `Q`
 - Open the application launcher: `Super` + `D`
 - Open a terminal: `Super` + `Space`
 - Switch workspace: `Super` + `0`-`9`
+- Move the focused window to a workspace: `Super` + `Shift` + `0`-`9`
 - Make fullscreen: `Super` + `F`
 
 ## System-wide installation
