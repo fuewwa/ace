@@ -102,13 +102,13 @@ void EnsureConfigExists() {
         return;
     }
 
-    out << "terminal = alacritty\n";
+    out << "terminal = kitty\n";
     out << "apps = rofi -show drun\n";
     out << "execute = alacritty\n";
 }
 
 std::string GetTerminalCommand() {
-    return GetValueForKey("terminal", "alacritty");
+    return GetValueForKey("terminal", "kitty");
 }
 
 std::string GetLauncherCommand() {

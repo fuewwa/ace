@@ -50,14 +50,14 @@ Both commands require root, since they write to `/usr/bin` and
 ace itself doesn't launch anything on its own — it relies on external
 programs configured by you:
  
-- a terminal emulator, defaulting to [alacritty](https://alacritty.org/)
+- a terminal emulator, defaulting to [kitty](https://github.com/kovidgoyal/kitty)
 - an application launcher, defaulting to [rofi](https://github.com/davatorium/rofi)
 
 On first run, ace creates a config file at `~/.config/ace/config` (if it
 doesn't already exist)
  
-You can change `alacritty` (or any other program) to any terminal emulator installed on your
-system (e.g. `xterm`, `kitty`, `foot`) — ace will launch whatever you put
+You can change `kitty` (or any other program) to any terminal emulator installed on your
+system (e.g. `xterm`, `alacritty`, `foot`) — ace will launch whatever you put
 there when you press `Super` + `Space`.
 
 ## Dependencies
