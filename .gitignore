@@ -12,6 +12,10 @@ build/
 *.rar
 *.7z
 
+# other
+*.patch
+*.diff
+
 # someone code on this?
 .DS_Store
 .vscode/
